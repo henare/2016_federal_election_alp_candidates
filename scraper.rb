@@ -1,25 +1,40 @@
-# This is a template for a Ruby scraper on morph.io (https://morph.io)
-# including some code snippets below that you should find helpful
+require "mechanize"
+require "scraperwiki"
 
-# require 'scraperwiki'
-# require 'mechanize'
-#
-# agent = Mechanize.new
-#
-# # Read in a page
-# page = agent.get("http://foo.com")
-#
-# # Find somehing on the page using css selectors
-# p page.at('div.content')
-#
-# # Write out to the sqlite database using scraperwiki library
-# ScraperWiki.save_sqlite(["name"], {"name" => "susan", "occupation" => "software developer"})
-#
-# # An arbitrary query against the database
-# ScraperWiki.select("* from data where 'name'='peter'")
+agent = Mechanize.new
+base_url = "http://www.alp.org.au"
+index_page = agent.get("#{base_url}/people/")
 
-# You don't have to do things with the Mechanize or ScraperWiki libraries.
-# You can use whatever gems you want: https://morph.io/documentation/ruby
-# All that matters is that your final data is written to an SQLite database
-# called "data.sqlite" in the current working directory which has at least a table
-# called "data".
+people_urls = index_page.search(".member-box").collect do |e|
+  base_url + e.at(:a).attr(:href)
+end
+
+def extract_url(page, text)
+  page.link_with(text: text).uri.to_s if page.link_with(text: text)
+end
+
+people_urls.each do |url|
+  page = agent.get(url)
+  contact_elements = page.at(".contact-box").search("p")
+  name = page.at(".page-banner").at("h1").inner_text
+
+  # FIXME: Mark's page is missing info so skipping it for now
+  # FIXME: Richard Marles is also parsing some wrong info
+  next if name == "Mark Butler"
+
+  record = {
+    name: page.at(".page-banner").at("h1").inner_text,
+    position: page.at(".main").at("h2").inner_text,
+    # TODO: Tidy up address more
+    address: contact_elements.first.inner_html.gsub("<br>", " ").gsub("\n", ""),
+    phone: contact_elements[1].inner_text,
+    email: contact_elements[2].inner_text,
+    website: contact_elements[3].inner_text,
+    facebook: extract_url(page, "Facebook"),
+    twitter: extract_url(page, "Twitter"),
+    instagram: extract_url(page, "Instagram")
+  }
+
+  p record
+  ScraperWiki.save_sqlite([:name], record)
+end
