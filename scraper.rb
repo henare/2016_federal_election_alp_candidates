@@ -18,9 +18,9 @@ people_urls.each do |url|
   contact_elements = page.at(".contact-box").search("p")
   name = page.at(".page-banner").at("h1").inner_text
 
-  # FIXME: Mark's page is missing info so skipping it for now
+  # FIXME: Skipping some pages that are missing info until the parser can handle it
   # FIXME: Richard Marles is also parsing some wrong info
-  next if name == "Mark Butler"
+  next if name == "Mark Butler" || name == "Anne McEwen"
 
   record = {
     name: page.at(".page-banner").at("h1").inner_text,
